@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>유니온 아티팩트 목표 레벨 계산기</title>
+<style>
+/* 아티팩트 전용 크리스탈 블루 & 퍼플 테마 */
+:root {
+    --bg: #f0f4f8; /* 아주 밝은 얼음색 배경 */
+    --panel: #ffffff;
+    --primary: #5c6bc0; /* 아티팩트 메인 퍼플/인디고 */
+    --primary-light: #8c9eff;
+    --secondary: #00bcd4; /* 크리스탈 시안(하늘색) */
+    --primary-grad: linear-gradient(135deg, #7e57c2, #4dd0e1); /* 보라 -> 시안 그라데이션 */
+    --ink: #1a237e; /* 텍스트 네이비 */
+    --muted: #7986cb; /* 흐린 텍스트 */
+    --line: #c5cae9; /* 테두리 선 */
+    --highlight: #00acc1; /* 강조색 */
+    --cleared-bg: #f8f9fa; /* 클리어 영역 배경 */
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 10% 0%,#e3f2fd 0,transparent 34%),linear-gradient(145deg,var(--bg),#e1f5fe);color:var(--ink);font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif}
+.wrap{max-width:1120px;margin:auto;padding:24px 16px 48px}
+.hero{padding:26px;border-radius:24px;background:var(--primary-grad);color:#fff;box-shadow:0 12px 28px rgba(126, 87, 194, 0.25);position:relative;overflow:hidden}
+.hero:after{content:"✦";position:absolute;right:28px;top:5px;font-size:100px;opacity:.15}
+.eyebrow{font-size:12px;letter-spacing:.13em;font-weight:800;opacity:.9}
+.hero h1{margin:7px 0;font-size:clamp(25px,4vw,38px)}
+.hero p{margin:0;max-width:720px;line-height:1.6; font-size: 15px;}
+.layout{display:grid;grid-template-columns:340px 1fr;gap:16px;margin-top:16px}
+.panel{background:#ffffffde;border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 8px 24px rgba(92, 107, 192, 0.08)}
+.panel h2{font-size:18px;margin:0 0 14px; color: var(--primary);}
+.field{display:grid;gap:6px;margin:12px 0}
+.field label{font-size:13px;font-weight:750;color:var(--primary)}
+.field input,.field select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);font:inherit;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--primary); box-shadow: 0 0 0 2px rgba(92,107,192,0.2);}
+.hint{font-size:12px;color:var(--muted);line-height:1.5}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+.stat small{display:block;color:var(--muted);font-size:12px}
+.stat strong{display:block;font-size:clamp(16px,1.8vw,22px);margin-top:5px; color: var(--primary);}
+.progress{height:12px;background:#e8eaf6;border-radius:99px;overflow:hidden;margin:12px 0 7px}
+.progress span{height:100%;display:block;background:linear-gradient(90deg, #7e57c2, #00e5ff);width:0;transition:width .3s ease-out}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.pill{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 12px;cursor:pointer;font-weight:700;color:var(--muted); transition: 0.2s;}
+.pill.active{background:#e8eaf6;color:var(--primary);border-color:var(--primary-light);}
+.pill:hover:not(.active){background:#f5f5f5;}
+.mission-list{display:grid;gap:8px}
+.mission{display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1px solid var(--line);border-radius:13px; transition: 0.2s;}
+.mission:hover {border-color: var(--primary-light);}
+.mission input{accent-color:var(--primary);width:18px;height:18px;flex-shrink:0; cursor:pointer;}
+.mission .name{font-weight:700;flex:1;font-size:13px}
+.mission .xp{white-space:nowrap;color:var(--highlight);font-weight:800;font-size:13px}
+.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:18px 0 10px}
+.sectionhead h3{margin:0;font-size:16px; color:var(--primary);}
+.btn{border:0;border-radius:11px;padding:10px 13px;background:var(--primary-grad);color:white;font-weight:800;cursor:pointer; transition:0.2s;}
+.btn:hover{opacity:0.9; transform: translateY(-1px);}
+.btn.secondary{background:#e8eaf6;color:var(--primary); border: 1px solid var(--line);}
+.btn.secondary:hover{background:#d0d4f0;}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.warning{padding:11px 13px;border-radius:12px;background:#e8eaf6;color:#283593;font-size:12px;line-height:1.55;margin-top:12px; border: 1px solid var(--line);}
+.result{background:linear-gradient(135deg,#fff,#f8fbff);border:1px solid var(--primary-light);}
+.resultline{font-size:14px;line-height:1.7}
+.resultline strong{color:var(--highlight)}
+.bossnote{font-size:12px;color:var(--muted);margin-bottom:10px; background:#e8eaf6; padding:10px; border-radius:8px;}
+.boss-row{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px;margin-bottom:8px;flex-wrap:wrap}
+.boss-row select{padding:8px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;flex:1;min-width:120px; outline:none;}
+.boss-row select:focus{border-color:var(--primary);}
+.boss-row input{accent-color:var(--primary);width:17px;height:17px;margin-right:5px; cursor:pointer;}
+.footer{color:var(--muted);font-size:12px;margin-top:18px;line-height:1.6; text-align:center;}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px; background:#fff;}
+td,th{padding:10px;border-bottom:1px solid var(--line);text-align:right}
+td:first-child,th:first-child{text-align:left}
+th{background:#f0f4f8; color:var(--primary);}
+.split-pane { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+.pane-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; color: var(--primary); }
+.cleared-bg { background-color: var(--cleared-bg); border: 1px dashed var(--line); }
+@media(max-width:800px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.split-pane{grid-template-columns:1fr}.wrap{padding:12px}.hero{padding:21px}}
+</style>
+</head>
+<body><div class="wrap">
+<header class="hero">
+    <div class="eyebrow">MAPLESTORY · UNION ARTIFACT</div>
+    <h1>유니온 아티팩트 계산기</h1>
+    <p>현재 레벨/경험치와 완료할 미션을 입력하여 목표 레벨 도달 시점을 계산합니다.<br>
+    <strong>💡 초기화 시각 기준: 매주 목요일 00:00 (한국 시간)</strong><br>
+    <strong>💡 보스는 주간 12마리 중 경험치가 가장 높은 3마리만 보상에 반영됩니다.</strong></p>
+</header>
+<div class="layout">
+<aside class="panel">
+<h2>현재 상태 및 목표</h2>
+<div class="field">
+    <label for="level">현재 레벨</label>
+    <!-- 클릭 시 0이 지워지도록 설정 -->
+    <input id="level" type="number" min="0" max="59" value="0" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0'; calc();">
+</div>
+<div class="field">
+    <label for="current">현재 레벨에서 보유한 경험치</label>
+    <input id="current" type="number" min="0" value="0" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0'; calc();">
+</div>
+<div class="hint" style="margin-bottom:10px">현재 레벨에서 다음 레벨로 넘어가기 위해 필요한 경험치 중 이미 채운 양입니다.</div>
+<div class="field">
+    <label for="targetLvl" style="color:var(--highlight)">목표 레벨 설정</label>
+    <input id="targetLvl" type="number" min="2" max="60" value="60" onfocus="if(this.value==='60' || this.value==='0') this.value='';" onblur="if(this.value==='') this.value='60'; calc();">
+</div>
+<div class="field"><label for="asof">계산 시작(현재) 날짜</label><input id="asof" type="date"></div>
+
+<div class="btnrow"><button class="btn" id="calc" style="width:100%; font-size:16px; padding:12px;">계산하기</button></div>
+<div class="btnrow"><button class="btn secondary" id="resetAll" style="width:100%;">전체 초기화</button></div>
+<div class="warning">
+    <strong>[계산 가이드]</strong><br>
+    '이번 주 이미 완료(체크)' 한 미션의 경험치는 내 인게임 '현재 경험치' 칸에 이미 들어있는 상태이므로, 1주차 획득 예상량에서 제외되어 정확한 소요 주차를 계산합니다.
+</div>
+</aside>
+<main>
+<section class="panel result"><h2>계산 결과</h2><div id="result" class="resultline">현재 레벨과 미션을 입력한 뒤 계산하기를 누르세요.</div><div class="progress"><span id="bar"></span></div><div class="hint" id="progressText"></div><div class="stats"><div class="stat"><small>목표 레벨까지 남은 경험치</small><strong id="remaining">—</strong></div><div class="stat"><small>매주 획득 예상 경험치</small><strong id="selectedxp">—</strong></div><div class="stat"><small>예상 도달 시점</small><strong id="arrival">—</strong></div></div></section>
+<section class="panel" style="margin-top:16px"><div class="sectionhead"><h2 style="margin:0">미션 계획</h2></div>
+<div class="tabs"><button class="pill active" data-tab="basic">기본 미션 (레범몬 & 주간접속)</button><button class="pill" data-tab="boss">보스 미션 (최대 3개)</button></div>
+<div class="btnrow" style="margin-top:0; margin-bottom:10px;" id="fastSelectBtns">
+    <button class="btn secondary" id="allBasic">레범몬 전체 선택/해제</button>
+    <button class="btn secondary" id="allWeekly">주간 접속 전체 선택/해제</button>
+</div>
+
+<!-- 기본 미션 탭 -->
+<div id="basicPane">
+    <!-- 레범몬 영역 -->
+    <div class="split-pane">
+        <div>
+            <div class="pane-title">📝 매주 진행할 '레범몬' (목표)</div>
+            <div class="mission-list" id="plannedBasicList"></div>
+        </div>
+        <div class="cleared-bg" style="padding:10px; border-radius:12px;">
+            <div class="pane-title" style="color:var(--muted)">✅ 이번 주 이미 완료 (첫 주 제외)</div>
+            <div class="hint" style="margin-bottom:8px;">왼쪽 목표 중 이번 주에 깬 것만 체크</div>
+            <div class="mission-list" id="clearedBasicList"></div>
+        </div>
+    </div>
+    
+    <hr style="border:0; border-bottom:1px dashed var(--line); margin: 20px 0;">
+    
+    <!-- 주간접속 영역 -->
+    <div class="split-pane">
+        <div>
+            <div class="pane-title">📝 매주 진행할 '주간 접속' (목표)</div>
+            <div class="mission-list" id="plannedWeeklyList"></div>
+        </div>
+        <div class="cleared-bg" style="padding:10px; border-radius:12px;">
+            <div class="pane-title" style="color:var(--muted)">✅ 이번 주 이미 완료 (첫 주 제외)</div>
+            <div class="hint" style="margin-bottom:8px;">접속 보상을 이미 받았다면 체크</div>
+            <div class="mission-list" id="clearedWeeklyList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 보스 미션 탭 -->
+<div id="bossPane" hidden>
+    <div class="bossnote">
+        동일 보스의 다른 난이도를 중복으로 깰 수 없습니다. 
+        아티팩트는 경험치가 가장 높은 최상위 3마리의 보스만 반영하므로, <strong>매주 잡을 최고 보스 3마리와 난이도를 선택</strong>해주세요.
+    </div>
+    <div id="bossListContainer">
+        <!-- 자바스크립트로 3줄 생성 -->
+    </div>
+</div>
+
+<div class="btnrow" style="margin-top:20px;">
+    <button class="btn secondary" id="clearChecks">체크 해제</button>
+</div>
+</section>
+<section class="panel" style="margin-top:16px">
+    <details>
+        <summary style="cursor:pointer; font-weight:bold; color:var(--primary);">레벨별 누적 경험치 표 보기 (클릭)</summary>
+        <div style="max-height:320px;overflow:auto; margin-top:10px;"><table><thead><tr><th>레벨</th><th>다음 레벨 필요 EXP</th><th>누적 EXP</th></tr></thead><tbody id="levelTable"></tbody></table></div>
+    </details>
+</section>
+</main></div>
+<div class="footer">참고: 예상 도달 시점은 소수점 주차가 발생할 경우 무조건 올림(Math.ceil)하여 온전한 주차로 계산합니다.</div>
+</div>
+
+<script>
+// 오늘 날짜로 기본 세팅
+document.querySelector("#asof").value = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD 포맷
+
+const costs=[2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3700,3800,3900,4000,4500,5000,5500,6000,6500,7000,7500,8000,8500,9000,9500,10000,12000,14000,16000,18000,20000,22000,24000,26000,28000,30000,50000,55000,60000,65000,70000,100000,110000,120000,130000,200000];
+const totalTo60=costs.reduce((a,b)=>a+b,0);
+const cumulative=[0];costs.forEach(x=>cumulative.push(cumulative[cumulative.length-1]+x));
+const basic=[["레범몬 2,000마리",50],["레범몬 5,000마리",150],["레범몬 10,000마리",200],["레범몬 20,000마리",400]];
+const weekly=[["주간 접속 1회",100],["주간 접속 2회",200],["주간 접속 3회",300],["주간 접속 4회",600]];
+
+const bossData = {
+    "자쿰": { "카오스": 150 }, "피에르": { "카오스": 180 }, "반반": { "카오스": 180 }, "블러디 퀸": { "카오스": 180 },
+    "매그너스": { "하드": 200 }, "벨룸": { "카오스": 200 }, "파풀라투스": { "카오스": 200 },
+    "스우": { "노멀": 250, "하드": 700, "익스트림": 1800 }, "데미안": { "노멀": 250, "하드": 700 },
+    "가디언 엔젤 슬라임": { "노멀": 250, "카오스": 900 },
+    "루시드": { "이지": 300, "노멀": 400, "하드": 800 }, "윌": { "이지": 300, "노멀": 400, "하드": 800 },
+    "더스크": { "노멀": 500, "카오스": 900 }, "듄켈": { "노멀": 500, "하드": 1000 },
+    "진 힐라": { "노멀": 800, "하드": 1000 }, "선택받은 세렌": { "노멀": 1200, "하드": 1500, "익스트림": 3500 },
+    "감시자 칼로스": { "이지": 1400, "노멀": 1800, "카오스": 3000, "익스트림": 4000 },
+    "최초의 대적자": { "이지": 1400, "노멀": 1800, "하드": 3000, "익스트림": 4000 },
+    "카링": { "이지": 1500, "노멀": 2000, "하드": 3500, "익스트림": 4500 },
+    "벨로나": { "이지": 1500, "노멀": 2000, "하드": 3500 }, "찬란한 흉성": { "노멀": 2000, "하드": 3500 },
+    "림보": { "노멀": 2500, "하드": 3500, "익스트림": 5000 }, "발드릭스": { "노멀": 3000, "하드": 4000, "익스트림": 5000 },
+    "유피테르": { "노멀": 3000, "하드": 4500 }
+};
+
+const fmt=n=>Math.round(n).toLocaleString("ko-KR");
+
+function renderChecks(arr, targetId, isClearedType){
+    const el = document.querySelector(targetId);
+    el.innerHTML="";
+    arr.forEach((m,i)=>{
+        const label=document.createElement("label");
+        label.className="mission";
+        if(isClearedType) {
+            label.style.background = "transparent";
+            label.style.border = "none";
+            label.style.padding = "5px 0";
+        }
+        label.innerHTML=`<input type="checkbox" data-xp="${m[1]}" data-index="${i}">
+        <span class="name">${m[0]}${isClearedType?' 완료':''}</span>
+        <span class="xp">${fmt(m[1])}</span>`;
+        el.appendChild(label);
+    });
+}
+
+renderChecks(basic, "#plannedBasicList", false);
+renderChecks(basic, "#clearedBasicList", true);
+renderChecks(weekly, "#plannedWeeklyList", false);
+renderChecks(weekly, "#clearedWeeklyList", true);
+
+function buildBossUI() {
+    const bossNames = Object.keys(bossData);
+    const container = document.querySelector("#bossListContainer");
+    container.innerHTML = "";
+    
+    for(let i=1; i<=3; i++) {
+        const row = document.createElement("div");
+        row.className = "boss-row";
+        
+        const selName = document.createElement("select");
+        selName.id = `bName${i}`;
+        selName.innerHTML = `<option value="">-- ${i}번째 보스 --</option>`;
+        bossNames.forEach(n => selName.innerHTML += `<option value="${n}">${n}</option>`);
+        
+        const selDiff = document.createElement("select");
+        selDiff.id = `bDiff${i}`;
+        selDiff.innerHTML = `<option value="">난이도</option>`;
+        
+        selName.addEventListener("change", () => {
+            selDiff.innerHTML = `<option value="">난이도</option>`;
+            const n = selName.value;
+            if(n && bossData[n]) {
+                for(let d in bossData[n]) {
+                    selDiff.innerHTML += `<option value="${bossData[n][d]}">${d} (${bossData[n][d]} EXP)</option>`;
+                }
+            }
+            calc();
+        });
+        selDiff.addEventListener("change", calc);
+        
+        const chkLabel = document.createElement("label");
+        chkLabel.style.fontSize = "13px";
+        chkLabel.style.fontWeight = "bold";
+        chkLabel.style.color = "var(--muted)";
+        chkLabel.style.marginLeft = "auto";
+        chkLabel.style.cursor = "pointer";
+        chkLabel.innerHTML = `<input type="checkbox" id="bClear${i}"> 이번주 클리어`;
+        chkLabel.querySelector("input").addEventListener("change", calc);
+        
+        row.appendChild(selName);
+        row.appendChild(selDiff);
+        row.appendChild(chkLabel);
+        container.appendChild(row);
+    }
+}
+buildBossUI();
+
+document.querySelectorAll(".pill").forEach(b=>b.addEventListener("click",()=>{
+    document.querySelectorAll(".pill").forEach(x=>x.classList.toggle("active",x===b));
+    document.querySelector("#basicPane").hidden=b.dataset.tab!=="basic";
+    document.querySelector("#bossPane").hidden=b.dataset.tab!=="boss";
+    document.querySelector("#fastSelectBtns").hidden=b.dataset.tab!=="basic";
+}));
+
+let toggleBasicState = false;
+let toggleWeeklyState = false;
+
+document.querySelector("#allBasic").addEventListener("click", () => {
+    toggleBasicState = !toggleBasicState;
+    document.querySelectorAll("#plannedBasicList input").forEach(cb => cb.checked = toggleBasicState);
+    calc();
+});
+document.querySelector("#allWeekly").addEventListener("click", () => {
+    toggleWeeklyState = !toggleWeeklyState;
+    document.querySelectorAll("#plannedWeeklyList input").forEach(cb => cb.checked = toggleWeeklyState);
+    calc();
+});
+
+function nextThursday(dateStr){
+    const d = new Date(dateStr + "T00:00:00");
+    let delta = (4 - d.getDay() + 7) % 7;
+    if(delta === 0) delta = 7; 
+    d.setDate(d.getDate() + delta);
+    return d;
+}
+function dateFmt(d){return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;}
+
+function calc(){
+    // 입력값 검증 (0이거나 비어있으면 0으로 처리, 목표는 60)
+    let lvStr = document.querySelector("#level").value;
+    let currStr = document.querySelector("#current").value;
+    let targetStr = document.querySelector("#targetLvl").value;
+
+    const lv = Math.max(1, Math.min(59, Number(lvStr) || 1));
+    const current = Math.max(0, Number(currStr) || 0);
+    const targetLvl = Math.max(2, Math.min(60, Number(targetStr) || 60));
+    
+    if (lv >= targetLvl) {
+        document.querySelector("#remaining").textContent = "0";
+        document.querySelector("#selectedxp").textContent = "0";
+        document.querySelector("#bar").style.width = "100%";
+        document.querySelector("#arrival").textContent = "목표 레벨 도달 완료!";
+        document.querySelector("#result").innerHTML = "이미 목표 레벨에 도달했거나 초과했습니다.";
+        return;
+    }
+
+    const validCurrent = Math.min(current, costs[lv-1]-1);
+    const currentTotal = cumulative[lv-1] + validCurrent;
+    const targetTotal = cumulative[targetLvl-1];
+    const needed = Math.max(0, targetTotal - currentTotal);
+    
+    const progress = (currentTotal / targetTotal) * 100;
+    
+    const plannedBasicXP = [...document.querySelectorAll("#plannedBasicList input:checked")].reduce((a,b)=>a+ +b.dataset.xp, 0);
+    const plannedWeeklyXP = [...document.querySelectorAll("#plannedWeeklyList input:checked")].reduce((a,b)=>a+ +b.dataset.xp, 0);
+    
+    let plannedBossXP = 0;
+    let clearedBossXP = 0;
+    for(let i=1; i<=3; i++){
+        const diffSel = document.querySelector(`#bDiff${i}`);
+        const chk = document.querySelector(`#bClear${i}`);
+        const xp = Number(diffSel.value) || 0;
+        plannedBossXP += xp;
+        if(chk.checked) clearedBossXP += xp;
+    }
+    
+    const totalWeeklyPlanned = plannedBasicXP + plannedWeeklyXP + plannedBossXP;
+    
+    const clearedBasicXP = [...document.querySelectorAll("#clearedBasicList input:checked")].reduce((a,b)=>{
+        const isPlanned = document.querySelector(`#plannedBasicList input[data-index="${b.dataset.index}"]`).checked;
+        return a + (isPlanned ? +b.dataset.xp : 0);
+    }, 0);
+    const clearedWeeklyXP = [...document.querySelectorAll("#clearedWeeklyList input:checked")].reduce((a,b)=>{
+        const isPlanned = document.querySelector(`#plannedWeeklyList input[data-index="${b.dataset.index}"]`).checked;
+        return a + (isPlanned ? +b.dataset.xp : 0);
+    }, 0);
+    
+    const totalClearedThisWeek = clearedBasicXP + clearedWeeklyXP + clearedBossXP;
+    
+    document.querySelector("#remaining").textContent = fmt(needed);
+    document.querySelector("#selectedxp").textContent = fmt(totalWeeklyPlanned);
+    document.querySelector("#bar").style.width = Math.min(100, progress) + "%";
+    document.querySelector("#progressText").textContent = `목표 ${targetLvl}레벨 누적 ${fmt(targetTotal)} EXP 기준 · 현재 진행도 ${progress.toFixed(2)}%`;
+
+    let arrival = "-";
+    if (totalWeeklyPlanned === 0) {
+        arrival = "미션/보스를 선택해주세요.";
+        document.querySelector("#result").innerHTML = `현재 <strong>${lv}레벨</strong>입니다. 목표 레벨까지 <strong>${fmt(needed)} EXP</strong>가 남았습니다.`;
+    } else {
+        // [피드백 반영] 소수점 발생 시 무조건 올림(Math.ceil) 처리 로직
+        let weeks = 0;
+        let firstWeekGain = Math.max(0, totalWeeklyPlanned - totalClearedThisWeek);
+
+        if (needed <= firstWeekGain) {
+            weeks = 1;
+        } else {
+            let remainingAfterFirstWeek = needed - firstWeekGain;
+            let additionalWeeks = Math.ceil(remainingAfterFirstWeek / totalWeeklyPlanned);
+            weeks = 1 + additionalWeeks;
+        }
+        
+        const dateStr = document.querySelector("#asof").value;
+        const targetDate = nextThursday(dateStr);
+        targetDate.setDate(targetDate.getDate() + (weeks - 1) * 7);
+        
+        arrival = `${weeks}주 소요 · ${dateFmt(targetDate)}`;
+        document.querySelector("#result").innerHTML = `현재 <strong>${lv}레벨</strong>${validCurrent?` (보유 ${fmt(validCurrent)} EXP)`:""}입니다. 목표(${targetLvl}렙)까지 <strong>${fmt(needed)} EXP</strong> 남았습니다.<br>매주 미션으로 <strong>${fmt(totalWeeklyPlanned)} EXP</strong>를 획득합니다. (1주차 이미 완료된 ${fmt(totalClearedThisWeek)} EXP 제외 계산됨)`;
+    }
+    
+    document.querySelector("#arrival").textContent = arrival;
+}
+
+document.querySelector("#calc").addEventListener("click", calc);
+document.querySelectorAll("#level, #current, #targetLvl, #asof").forEach(x=>x.addEventListener("change", calc));
+document.querySelectorAll('input[type="checkbox"]').forEach(x=>x.addEventListener("change", calc));
+
+document.querySelector("#resetAll").addEventListener("click",()=>{
+    document.querySelector("#level").value = 0;
+    document.querySelector("#current").value = 0;
+    document.querySelector("#targetLvl").value = 60;
+    document.querySelectorAll('input[type="checkbox"]').forEach(x => x.checked = false);
+    for(let i=1; i<=3; i++){
+        document.querySelector(`#bName${i}`).value = "";
+        document.querySelector(`#bDiff${i}`).innerHTML = `<option value="">난이도</option>`;
+    }
+    toggleBasicState = false;
+    toggleWeeklyState = false;
+    calc();
+});
+document.querySelector("#clearChecks").addEventListener("click",()=>{
+    document.querySelectorAll('input[type="checkbox"]').forEach(x => x.checked = false);
+    calc();
+});
+
+function renderTable(){
+    const body=document.querySelector("#levelTable");
+    body.innerHTML="";
+    for(let l=1;l<=60;l++){
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${l}레벨</td><td>${l===60?"만렙":fmt(costs[l-1])}</td><td>${fmt(cumulative[l-1])}</td>`;
+        body.appendChild(tr);
+    }
+}
+renderTable();
+calc();
+</script></body></html>
